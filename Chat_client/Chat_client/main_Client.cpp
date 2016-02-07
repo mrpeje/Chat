@@ -112,8 +112,7 @@ private:
             printf("chat_client : do_read_body\n");
             if (!ec)
             {
-                std::cout.write(read_msg_.body(), read_msg_.body_length());
-                //std::cout << "\n";
+                std::cout<< "DEBUG in "<<read_msg_.data();    // issue #4
                 do_read_header();
             }
             else
@@ -131,7 +130,7 @@ private:
             printf("chat_client : do_write\n");
             if (!ec)
             {
-                //write_buffer_[0] = '\0';    // !!! clear write_buffer after sending to server
+                std::cout<< "DEBUG out"<<write_msgs_.front().data();    // issue #4
                 write_msgs_.pop_front();
                 if (!write_msgs_.empty())
                 {
@@ -171,7 +170,10 @@ int main(int argc, char* argv[])
         {
             chat_message msg;
             msg.body_length(std::strlen(line));
+
             std::memcpy(msg.body(), line, msg.body_length());
+            std::memcpy(msg.body()+msg.body_length(), "\n", msg.body_length()+1);
+
             msg.encode_header();
             c.write(msg);
         }

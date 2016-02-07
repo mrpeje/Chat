@@ -128,6 +128,9 @@ private:
                             [this, self](boost::system::error_code ec, std::size_t)
         {
             printf("chat_session : do_read_body\n");
+
+            std::cout<< "DEBUG in "<<read_msg_.data();    // issue #4
+
             char * str;
             str = strstr(read_msg_.body(), "login :");
             if(str)
@@ -143,7 +146,6 @@ private:
                 room_.join(shared_from_this());
 
             }
-            printf("%s\n",read_msg_.body());
             if (!ec)
             {
                 //room_.deliver(read_msg_);
@@ -167,6 +169,7 @@ private:
             printf("chat_session : do_write\n");
             if (!ec)
             {
+                std::cout<< "DEBUG out"<<write_msgs_.front().data();    // issue #4
                 write_msgs_.pop_front();
                 if (!write_msgs_.empty())
                 {
