@@ -15,14 +15,24 @@
 #include <cstdlib>
 #include <cstring>
 
+// Issue #1
+enum class ServiceMsg
+{
+    onLogin = 0,
+    toClient = 1,
+    listOfClients = 2,
+    joinToUserChatRoom = 3,
+};
+
 class chat_message
 {
 public:
-	enum { header_length = 4 };
+    enum { header_length = 5 };
 	enum { max_body_length = 512 };
 
 	chat_message()
-	: body_length_(0)
+    : body_length_(0),
+      srvMsg_(ServiceMsg::toClient)
 	{
 	}
 
@@ -64,11 +74,28 @@ public:
 			body_length_ = max_body_length;
 	}
 
+    void setSrvMsg(ServiceMsg m)
+    {
+        srvMsg_ = m;
+    }
+
+    ServiceMsg getSrvMsg()
+    {
+        return srvMsg_;
+    }
+
 	bool decode_header()
 	{
 		char header[header_length + 1] = "";
 		std::strncat(header, data_, header_length);
-		body_length_ = std::atoi(header);
+
+        // Issue #1
+        char srvMsg[1] = "";
+        std::strncat(srvMsg, header, 1);
+
+        srvMsg_ = static_cast<ServiceMsg>(std::atoi(srvMsg));
+
+        body_length_ = std::atoi(header+1);
 
 		if (body_length_ > max_body_length)
 		{
@@ -81,13 +108,17 @@ public:
 	void encode_header()
 	{
 		char header[header_length + 1] = "";
-		std::sprintf(header, "%4d", static_cast<int>(body_length_));
+        std::sprintf(header, "%1d", static_cast<int>(srvMsg_));			// Issue #1
+
+        std::sprintf(header+1, "%4d", static_cast<int>(body_length_));
 		std::memcpy(data_, header, header_length);
 	}
 
 private:
 	char data_[header_length + max_body_length];
 	std::size_t body_length_;
+    ServiceMsg srvMsg_;									// Issue #1
+
 };
 
 #endif // CHAT_MESSAGE_HPP

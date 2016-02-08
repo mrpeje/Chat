@@ -129,22 +129,18 @@ private:
         {
             printf("chat_session : do_read_body\n");
 
-            std::cout<< "DEBUG in "<<read_msg_.data();    // issue #4
+            std::cout<< "DEBUG in ["<<read_msg_.data()<<"]\n";    // issue #4
 
-            char * str;
-            str = strstr(read_msg_.body(), "login :");
-            if(str)
+            if(read_msg_.getSrvMsg() == ServiceMsg::onLogin)
             {
-                size_t size = strlen(str)-1;
-                std::istringstream in(read_msg_.data()+size);
+                std::istringstream in(read_msg_.body());
                 in >> username_;
                 std::cout<<username_<< "\n";
                 clients.push_back( shared_from_this());
-                read_msg_.decode_header();
+
                 update_clients_changed();
                 on_clients();
-                room_.join(shared_from_this());
-
+                //room_.join(shared_from_this());
             }
             if (!ec)
             {
@@ -169,7 +165,7 @@ private:
             printf("chat_session : do_write\n");
             if (!ec)
             {
-                std::cout<< "DEBUG out"<<write_msgs_.front().data();    // issue #4
+                std::cout<< "DEBUG out["<<write_msgs_.front().data()<<"]\n";    // issue #4
                 write_msgs_.pop_front();
                 if (!write_msgs_.empty())
                 {
@@ -189,15 +185,15 @@ private:
         std::string array_of_clients;
         chat_message msg;
 
+        msg.setSrvMsg(ServiceMsg::listOfClients);
         // Copy usernames of clients to string
         for( array::const_iterator b = clients.begin(), e = clients.end() ; b != e; ++b)
             array_of_clients += (*b)->username() + " ";
 
         array_of_clients.append("\n");
-        std::memcpy(msg.body(), "Clients :", 9);
-        msg.body_length(array_of_clients.length()+9);
+        msg.body_length(array_of_clients.length());
 
-        std::memcpy(msg.body()+9, array_of_clients.c_str(), msg.body_length());
+        std::memcpy(msg.body(), array_of_clients.c_str(), msg.body_length());
         msg.encode_header();
 
         deliver(msg);

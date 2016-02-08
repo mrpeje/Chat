@@ -70,14 +70,13 @@ private:
             printf("chat_client : do_connect\n");
             if ( !ec)
             {
-                //write - "login " + username_ + "\n"
                 username_.append("\n");
                 chat_message msg;
 
-                std::memcpy(msg.body(), "login :", 7);
-                msg.body_length(username_.length()+7);
+                msg.setSrvMsg(ServiceMsg::onLogin);
+                msg.body_length(username_.length());
 
-                std::memcpy(msg.body()+7, username_.c_str(), msg.body_length());
+                std::memcpy(msg.body(), username_.c_str(), msg.body_length());
                 msg.encode_header();
 
                 write(msg);
@@ -112,11 +111,12 @@ private:
             printf("chat_client : do_read_body\n");
             if (!ec)
             {
-                std::cout<< "DEBUG in "<<read_msg_.data();    // issue #4
+                std::cout<< "DEBUG in ["<<read_msg_.data()<<"]\n";    // issue #4
                 do_read_header();
             }
             else
             {
+
                 socket_.close();
             }
         });
@@ -130,7 +130,7 @@ private:
             printf("chat_client : do_write\n");
             if (!ec)
             {
-                std::cout<< "DEBUG out"<<write_msgs_.front().data();    // issue #4
+                std::cout<< "DEBUG out["<<write_msgs_.front().data()<<"]\n";    // issue #4
                 write_msgs_.pop_front();
                 if (!write_msgs_.empty())
                 {
@@ -169,6 +169,7 @@ int main(int argc, char* argv[])
         while (std::cin.getline(line, chat_message::max_body_length + 1))
         {
             chat_message msg;
+            msg.setSrvMsg(ServiceMsg::toClient);
             msg.body_length(std::strlen(line));
 
             std::memcpy(msg.body(), line, msg.body_length());

@@ -14,3 +14,6 @@ CONFIG += c++11
 
 LIBS += \
 	   -lboost_system\
+
+HEADERS += \
+    ../../chat_message.hpp

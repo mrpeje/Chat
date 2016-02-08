@@ -18,3 +18,6 @@ LIBS += \
 		-lboost_filesystem\
 		-lboost_system\
 
+HEADERS += \
+    ../../chat_message.hpp
+
