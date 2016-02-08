@@ -36,7 +36,10 @@ public:
 
     chat_client(boost::asio::io_service& io_service,
                 tcp::resolver::iterator endpoint_iterator,
-                const std::string & username) :io_service_(io_service), socket_(io_service), username_(username)
+                const std::string & username)
+                :io_service_(io_service),
+                 socket_(io_service),
+                 username_(username)
     {
         printf("chat_client : init\n");
         do_connect(endpoint_iterator);
@@ -70,13 +73,13 @@ private:
             printf("chat_client : do_connect\n");
             if ( !ec)
             {
-                username_.append("\n");
                 chat_message msg;
 
                 msg.setSrvMsg(ServiceMsg::onLogin);
-                msg.body_length(username_.length());
+                msg.body_length(username_.length()+1);
 
                 std::memcpy(msg.body(), username_.c_str(), msg.body_length());
+                std::memcpy(msg.body()+msg.body_length(), "\n", 1);
                 msg.encode_header();
 
                 write(msg);
@@ -109,6 +112,19 @@ private:
                                 [this](boost::system::error_code ec, std::size_t)
         {
             printf("chat_client : do_read_body\n");
+            // Issue #3
+            if(!ec && read_msg_.getSrvMsg() == ServiceMsg::listOfClients)
+            {
+                std::stringstream ss(read_msg_.body());
+                std::string buf;
+
+                while (ss >> buf)
+                {
+                    if(username_ != buf)
+                        listOfClients_.push_back(buf);
+                }
+
+            }
             if (!ec)
             {
                 std::cout<< "DEBUG in ["<<read_msg_.data()<<"]\n";    // issue #4
@@ -149,6 +165,7 @@ private:
     chat_message read_msg_;
     chat_message_queue write_msgs_;
     std::string username_;
+    std::vector<std::string> listOfClients_;
 };
 
 int main(int argc, char* argv[])

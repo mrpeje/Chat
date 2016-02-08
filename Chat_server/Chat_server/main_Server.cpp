@@ -140,7 +140,7 @@ private:
 
                 update_clients_changed();
                 on_clients();
-                //room_.join(shared_from_this());
+                room_.join(shared_from_this());
             }
             if (!ec)
             {
@@ -190,7 +190,8 @@ private:
         for( array::const_iterator b = clients.begin(), e = clients.end() ; b != e; ++b)
             array_of_clients += (*b)->username() + " ";
 
-        array_of_clients.append("\n");
+        array_of_clients[array_of_clients.length()-1] = '\n';
+        //array_of_clients.append("\n");
         msg.body_length(array_of_clients.length());
 
         std::memcpy(msg.body(), array_of_clients.c_str(), msg.body_length());
