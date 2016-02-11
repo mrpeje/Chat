@@ -11,12 +11,22 @@ using boost::asio::ip::tcp;
 
 typedef std::deque<chat_message> chat_message_queue;
 
-void update_clients_changed();
-
+class chat_room;
+class chat_participant;
 class chat_session;
+
+typedef std::shared_ptr<chat_participant> chat_participant_ptr;
 typedef std::shared_ptr<chat_session> client_ptr;
 typedef std::vector<client_ptr> array;
+
+int FindRoom(chat_participant_ptr a);
+client_ptr FindClient(std::string user);
+
 array clients;
+// Issue #2
+std::vector <chat_room> Rooms;
+
+int NextEmptyRoom;
 
 //----------------------------------------------------------------------
 
@@ -27,8 +37,6 @@ public:
     virtual void deliver(const chat_message& msg) = 0;
 };
 
-typedef std::shared_ptr<chat_participant> chat_participant_ptr;
-
 //----------------------------------------------------------------------
 
 class chat_room
@@ -38,8 +46,6 @@ public:
     {
         printf("chat_room : join\n");
         participants_.insert(participant);
-        //for (auto msg: recent_msgs_)
-        //participant->deliver(msg);
     }
 
     void leave(chat_participant_ptr participant)
@@ -58,7 +64,10 @@ public:
         for (auto participant: participants_)
         participant->deliver(msg);
     }
-
+    inline const std::set<chat_participant_ptr> getParticipants()
+    {
+        return participants_;
+    }
 private:
     std::set<chat_participant_ptr> participants_;
     enum { max_recent_msgs = 100 };
@@ -70,23 +79,21 @@ private:
 class chat_session: public chat_participant, public std::enable_shared_from_this<chat_session>
 {
 public:
-    std::string username() const { return username_; }
+    inline const std::string username() const { return username_; }
 
     typedef chat_session self_type;
-    chat_session(tcp::socket socket, chat_room& room)
+    chat_session(tcp::socket socket)
     : socket_(std::move(socket)),
-    room_(room)
+    serviceRoom_(Rooms.front())
     {
         printf("chat_session : init\n");
     }
 
-    void set_clients_changed() { clients_changed_ = true; }
-
     void start()
     {
         printf("chat_session : start\n");
-
-        //room_.join(shared_from_this());
+        participant_ = shared_from_this();
+        serviceRoom_.join(shared_from_this());
         do_read_header();
     }
 
@@ -115,7 +122,7 @@ private:
             }
             else
             {
-                room_.leave(shared_from_this());
+                serviceRoom_.leave(shared_from_this());
             }
         });
     }
@@ -137,19 +144,40 @@ private:
                 in >> username_;
                 std::cout<<username_<< "\n";
                 clients.push_back( shared_from_this());
-
-                update_clients_changed();
                 on_clients();
-                room_.join(shared_from_this());
+            }
+            else if(read_msg_.getSrvMsg() == ServiceMsg::toClient)
+            {
+                  int roomIndx = -1;
+                  roomIndx = FindRoom(participant_);
+
+                  if(roomIndx != -1)
+                  {
+                     Rooms[roomIndx].deliver(read_msg_);
+                  }
+
+            }
+            else if(read_msg_.getSrvMsg() == ServiceMsg::JoinUsers)
+            {
+                std::string name(read_msg_.body());
+
+                const client_ptr ptr = FindClient(name);
+                if(ptr)
+                {
+                    Rooms[NextEmptyRoom].join(shared_from_this());
+                    Rooms[NextEmptyRoom].join(ptr);
+                    NextEmptyRoom++;
+                }
+                //else !!!!!
+
             }
             if (!ec)
             {
-                //room_.deliver(read_msg_);
                 do_read_header();
             }
             else
             {
-                room_.leave(shared_from_this());
+                serviceRoom_.leave(shared_from_this());
             }
         });
     }
@@ -174,38 +202,38 @@ private:
             }
             else
             {
-                room_.leave(shared_from_this());
+                serviceRoom_.leave(shared_from_this());
             }
         });
     }
-//================================================================================
-    // interface for dialogue with the client
+
     void on_clients()
     {
         std::string array_of_clients;
         chat_message msg;
 
         msg.setSrvMsg(ServiceMsg::listOfClients);
+
         // Copy usernames of clients to string
         for( array::const_iterator b = clients.begin(), e = clients.end() ; b != e; ++b)
             array_of_clients += (*b)->username() + " ";
 
         array_of_clients[array_of_clients.length()-1] = '\n';
-        //array_of_clients.append("\n");
+
         msg.body_length(array_of_clients.length());
 
         std::memcpy(msg.body(), array_of_clients.c_str(), msg.body_length());
         msg.encode_header();
 
-        deliver(msg);
+        serviceRoom_.deliver(msg);
     }
 
+    std::string username_;
+    chat_participant_ptr participant_;
     tcp::socket socket_;
-    chat_room& room_;
+    chat_room& serviceRoom_;            // room for dilivering service messages
     chat_message read_msg_;
     chat_message_queue write_msgs_;
-    bool clients_changed_;
-    std::string username_;
 };
 
 //----------------------------------------------------------------------
@@ -219,6 +247,7 @@ public:
                 : acceptor_(io_service, endpoint),
     socket_(io_service)
     {
+        NextEmptyRoom = 1;
         do_accept();
     }
 
@@ -230,7 +259,10 @@ private:
         {
             if (!ec)
             {
-                std::make_shared<chat_session>(std::move(socket_), room_)->start();
+                chat_room newRoom;          // Create new empty room when new client accepted
+                Rooms.push_back(newRoom);
+
+                std::make_shared<chat_session>(std::move(socket_))->start();
             }
             do_accept();
         });
@@ -238,13 +270,41 @@ private:
 
     tcp::acceptor acceptor_;
     tcp::socket socket_;
-    chat_room room_;
 };
 
-void update_clients_changed()
+// Looking for user in clients array by his name
+client_ptr FindClient(std::string user)
 {
     for( array::iterator b = clients.begin(), e = clients.end(); b != e; ++b)
-        (*b)->set_clients_changed();
+    {
+        if((*b)->username() == user)
+        {
+            return (*b);
+        }
+
+    }
+    return NULL;
+}
+
+// Looking for user in Rooms and return room's index if that user connected to that room.
+int FindRoom(chat_participant_ptr a)
+{
+    int rezIndx;
+
+    auto it = Rooms.begin();
+
+    for (it++; it != Rooms.end(); ++it)
+    {
+        for (auto participant: (*it).getParticipants())
+        {
+            if(participant == a)
+            {
+               return rezIndx;
+            }
+        }
+        rezIndx++;
+    }
+    return -1;
 }
 
 

@@ -21,7 +21,7 @@ enum class ServiceMsg
     onLogin = 0,
     toClient = 1,
     listOfClients = 2,
-    joinToUserChatRoom = 3,
+    JoinUsers = 3,
 };
 
 class chat_message

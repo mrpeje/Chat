@@ -190,8 +190,16 @@ int main(int argc, char* argv[])
             msg.body_length(std::strlen(line));
 
             std::memcpy(msg.body(), line, msg.body_length());
-            std::memcpy(msg.body()+msg.body_length(), "\n", msg.body_length()+1);
 
+            // Issue #2
+            if(strstr(msg.body(),"\connect to "))
+            {
+                msg.body_length(std::strlen(line)-12);
+                msg.setSrvMsg(ServiceMsg::JoinUsers);
+                std::memcpy(msg.body(), line+12, msg.body_length());
+            }
+
+            std::memcpy(msg.body()+msg.body_length(), "\n", msg.body_length()+1);
             msg.encode_header();
             c.write(msg);
         }
