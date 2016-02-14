@@ -21,7 +21,8 @@ enum class ServiceMsg
     onLogin = 0,
     toClient = 1,
     listOfClients = 2,
-    JoinUsers = 3,
+    JoinUsers = 3,          // Connect user to room
+    DisconnectUser = 4      // Disconnect user from room
 };
 
 class chat_message

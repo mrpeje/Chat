@@ -65,6 +65,16 @@ public:
         io_service_.post([this]() { socket_.close(); });
     }
 
+    bool findUser(std::string searchingUser)
+    {
+        for(auto user: listOfClients_)
+        {
+            if(strcmp(user.c_str(), searchingUser.c_str()) == 0)
+                return true;
+        }
+        return false;
+    }
+
 private:
     void do_connect(tcp::resolver::iterator endpoint_iterator)
     {
@@ -159,6 +169,9 @@ private:
             }
         });
     }
+
+
+
 private:
     boost::asio::io_service& io_service_;
     tcp::socket socket_;
@@ -168,10 +181,14 @@ private:
     std::vector<std::string> listOfClients_;
 };
 
+
+
 int main(int argc, char* argv[])
 {
     try
     {
+        std::string srvMsg1 = "|connect to ";
+        std::string srvMsg2 = "|disconnect";
 
         boost::asio::io_service io_service;
 
@@ -185,6 +202,7 @@ int main(int argc, char* argv[])
         char line[chat_message::max_body_length + 1];
         while (std::cin.getline(line, chat_message::max_body_length + 1))
         {
+            bool permissionToSend = true;
             chat_message msg;
             msg.setSrvMsg(ServiceMsg::toClient);
             msg.body_length(std::strlen(line));
@@ -192,16 +210,35 @@ int main(int argc, char* argv[])
             std::memcpy(msg.body(), line, msg.body_length());
 
             // Issue #2
-            if(strstr(msg.body(),"\connect to "))
+            if(strstr(msg.body(),srvMsg1.c_str()))
             {
-                msg.body_length(std::strlen(line)-12);
+                msg.body_length(std::strlen(line) - srvMsg1.length());
                 msg.setSrvMsg(ServiceMsg::JoinUsers);
-                std::memcpy(msg.body(), line+12, msg.body_length());
+                std::memcpy(msg.body(), line + srvMsg1.length(), msg.body_length());
+
+            }
+            // Issue #6
+            else if(strstr(msg.body(),srvMsg2.c_str()))
+            {
+                msg.body_length(std::strlen(line) - srvMsg2.length());
+                msg.setSrvMsg(ServiceMsg::DisconnectUser);
+                std::memcpy(msg.body(), line + srvMsg2.length(), msg.body_length());
             }
 
             std::memcpy(msg.body()+msg.body_length(), "\n", msg.body_length()+1);
             msg.encode_header();
-            c.write(msg);
+
+            // Сhecking for the name in the list of clients
+            if(msg.getSrvMsg() == ServiceMsg::JoinUsers)
+            {
+                std::string userName(msg.body());
+                userName[userName.length()-1] = '\0';       // Cut '\n' char
+                permissionToSend = c.findUser(userName);
+                std::cout << "cant find user\n";
+            }
+
+            if(permissionToSend)
+                c.write(msg);
         }
 
         c.close();
