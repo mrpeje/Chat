@@ -4,26 +4,11 @@
 #include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <getopt.h>
 
 #include "../../chat_message.hpp"
 
 using boost::asio::ip::tcp;
-
-
-#define MEM_FN(x)       boost::bind(&self_type::x, shared_from_this())
-#define MEM_FN1(x,y)    boost::bind(&self_type::x, shared_from_this(),y)
-#define MEM_FN2(x,y,z)  boost::bind(&self_type::x, shared_from_this(),y,z)
-
-// sock_.async_connect(ep, MEM_FN1(on_connect,_1));
-// equivalent to
-// sock_.async_connect(ep, boost::bind(&talk_to_svr::on_connect,shared_ptr_from_this(),_1));
-
-/*
- * создаем завершающий обработчик async_connect,
- * он будет сохранять shared pointer на экземпляр chat_client
- * пока он не вызовет завершающий обработчик, тем самым, убедившись,
- * что мы все еще живы, когда это произойдет.
-*/
 
 typedef std::deque<chat_message> chat_message_queue;
 
@@ -41,7 +26,6 @@ public:
                  socket_(io_service),
                  username_(username)
     {
-        printf("chat_client : init\n");
         do_connect(endpoint_iterator);
     }
 
@@ -80,7 +64,6 @@ private:
     {
         boost::asio::async_connect(socket_, endpoint_iterator, [this](boost::system::error_code ec, tcp::resolver::iterator)
         {
-            printf("chat_client : do_connect\n");
             if ( !ec)
             {
                 chat_message msg;
@@ -104,7 +87,6 @@ private:
         boost::asio::async_read(socket_, boost::asio::buffer(read_msg_.data(), chat_message::header_length),
                                 [this](boost::system::error_code ec, std::size_t)
         {
-            printf("chat_client : do_read_header\n");
             if (!ec && read_msg_.decode_header())
             {
                 do_read_body();
@@ -121,7 +103,6 @@ private:
         boost::asio::async_read(socket_, boost::asio::buffer(read_msg_.body(), read_msg_.body_length()),
                                 [this](boost::system::error_code ec, std::size_t)
         {
-            printf("chat_client : do_read_body\n");
             // Issue #3
             if(!ec && read_msg_.getSrvMsg() == ServiceMsg::listOfClients)
             {
@@ -154,7 +135,6 @@ private:
         boost::asio::async_write(socket_, boost::asio::buffer(write_msgs_.front().data(), write_msgs_.front().length()),
                                 [this](boost::system::error_code ec, std::size_t)
         {
-            printf("chat_client : do_write\n");
             if (!ec)
             {
                 std::cout<< "DEBUG out["<<write_msgs_.front().data()<<"]\n";    // issue #4
@@ -171,8 +151,6 @@ private:
         });
     }
 
-
-
 private:
     boost::asio::io_service& io_service_;
     tcp::socket socket_;
@@ -182,28 +160,84 @@ private:
     std::vector<std::string> listOfClients_;
 };
 
-
-
 int main(int argc, char* argv[])
 {
     try
-    {
+    { 
         std::string srvMsg1 = "|connect to ";
         std::string srvMsg2 = "|disconnect";
+        char *login_name = "";
+
+        if (argc > 3)
+        {
+            printf("Try -h or --help for print help\n");
+            return 1;
+        }
+
+
+        const char* short_options = "n:h";
+        static struct option logopts[] =
+        {
+            { "name", required_argument, 0 , 'n'},
+            { "help", no_argument      , 0 , 'h'},
+            { 0     , 0                , 0 , 0}
+        };
+        int opt = 0;
+
+        while ((opt = getopt_long(argc, argv, short_options, logopts, NULL)) != -1)
+        {
+            if(opt != -1)
+            {
+                switch(opt)
+                {
+                    case 'n':
+                    {
+                        login_name = optarg;
+                        printf("login as %s\n", login_name);
+                        break;
+                    }
+                    case 'h':
+                    {
+                        printf("\nUsage: chat_client --name or -n <login Name>\n");
+                        printf("Use commands \n");
+                        printf("        '%s' - To connect to private chat room with UserName\n", srvMsg1.c_str());
+                        printf("        '%s' - To disconnect from private room\n\n", srvMsg2.c_str());
+                        return 0;
+                    }
+                    case '?': default:
+                    {
+                        printf("found unknown option\n");
+                        printf("Try -h or --help for print help\n");
+                        return 0;
+                    }
+                }
+            }
+        }
+
+        if (optind < argc)
+        {
+            printf("non-option ARGV-elements: ");
+            while (optind < argc)
+                printf("%s ", argv[optind++]);
+            printf("\n");
+            return 0;
+        }
 
         boost::asio::io_service io_service;
 
         tcp::resolver resolver(io_service);
         tcp::resolver::query query("127.0.0.1", "8001");
         auto endpoint_iterator = resolver.resolve(query);
-        chat_client c(io_service, endpoint_iterator, argv[1]);
+        chat_client c(io_service, endpoint_iterator, login_name);
 
         std::thread t([&io_service](){ io_service.run(); });
 
         char line[chat_message::max_body_length + 1];
+
         while (std::cin.getline(line, chat_message::max_body_length + 1))
         {
             bool permissionToSend = true;
+
             chat_message msg;
             msg.setSrvMsg(ServiceMsg::toClient);
             msg.body_length(std::strlen(line));
@@ -235,7 +269,7 @@ int main(int argc, char* argv[])
                 std::string userName(msg.body());
                 userName[userName.length()-1] = '\0';       // Cut '\n' char
                 permissionToSend = c.findUser(userName);
-                std::cout << "cant find user\n";
+                std::cout << "can't find user\n";
             }
 
             if(permissionToSend)
