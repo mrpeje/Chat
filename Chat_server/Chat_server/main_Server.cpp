@@ -213,6 +213,7 @@ private:
                     Rooms[roomIndx].get()->disconnectAllUsers(participant_);
                 }
             }
+            read_msg_.Clear();
             if (!ec)
             {
                 do_read_header();

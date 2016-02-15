@@ -37,6 +37,11 @@ public:
 	{
 	}
 
+    void Clear()
+    {
+        memset(data_,0,strlen(data_));
+    }
+
 	const char* data() const
 	{
 		return data_;

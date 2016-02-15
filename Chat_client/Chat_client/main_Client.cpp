@@ -138,6 +138,7 @@ private:
             if (!ec)
             {
                 std::cout<< "DEBUG in ["<<read_msg_.data()<<"]\n";    // issue #4
+                read_msg_.Clear();
                 do_read_header();
             }
             else
