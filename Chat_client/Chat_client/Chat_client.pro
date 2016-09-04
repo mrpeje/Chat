@@ -8,7 +8,10 @@ CONFIG -= app_bundle
 TEMPLATE = app
 
 SOURCES += \
-    main_Client.cpp
+    Client.cpp \
+    main.cpp \
+    Crypto.cpp \
+    base64.cpp
 
 CONFIG += c++11
 
@@ -18,6 +21,14 @@ LIBS += \
 		-lboost_filesystem\
 		-lboost_system\
 
+INCLUDEPATH += \
+                        /usr/include/boost
+
+LIBS += -L/opt/local/lib/ -lcrypto
+
 HEADERS += \
-    ../../chat_message.hpp
+    ../../chat_message.hpp \
+    Client.hpp \
+    Crypto.hpp \
+    base64.hpp
 
