@@ -1,0 +1,6 @@
+*.a
+*~
+# игнорировать все файлы в каталогах
+BUILD-Chat_client/
+BUILD-chat_server/
+
