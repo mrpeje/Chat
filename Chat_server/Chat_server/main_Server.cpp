@@ -176,7 +176,7 @@ private:
             {
                 std::istringstream in(read_msg_.body());
                 in >> username_;
-                std::cout<<username_<< "\n";
+                std::cout<< "Server get name: "<<username_<< "\n";
                 Clients.push_back( shared_from_this());
                 on_Clients();
             }

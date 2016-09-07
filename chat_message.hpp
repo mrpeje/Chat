@@ -96,7 +96,7 @@ public:
 		std::strncat(header, data_, header_length);
 
         // Issue #1
-        char srvMsg[1] = "";
+        char srvMsg[2] = "";
         std::strncat(srvMsg, header, 1);
 
         srvMsg_ = static_cast<ServiceMsg>(std::atoi(srvMsg));
