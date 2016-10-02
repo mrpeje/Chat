@@ -92,26 +92,30 @@ void chat_client::do_read_body()
             Crypto crypto;
 
 
-            char *b64ek, *b64iv, *b64Msg;
+            string b64ek, b64iv, b64Msg;
             int b64_ek_Length, b64_iv_Length, b64_Msg_Length, decMsgLen;
             char *decMsg = NULL;
 
             //pars body
 
             string msg(read_msg_.body());
-            smatch match;
-            std::regex rx("[|]");
-            if (regex_search(msg, match, rx));
-                msg = match.suffix().str();
-            regex delimt("(\\|)?");
+
+            std::size_t pos = msg.find("|");
+            string str_Msg_Length = msg.substr(0, pos);
+            b64_Msg_Length = std::stoi(str_Msg_Length);
+
+            b64Msg = msg.substr(pos + 1, b64_Msg_Length);
+
+            string str_ek_Length = msg.substr(b64_Msg_Length, b64_Msg_Length+2);
+
 
             //decode ek, iv and msg from b64 view
             unsigned char * ek ;
-            int ekl = base64Decode(b64ek, b64_ek_Length, &ek);
+            int ekl = base64Decode(b64ek.c_str(), b64_ek_Length, &ek);
             unsigned char * iv ;
-            int ivl = base64Decode(b64iv, b64_iv_Length, &iv);
+            int ivl = base64Decode(b64iv.c_str(), b64_iv_Length, &iv);
             unsigned char * encMessage ;
-            int msg_Length = base64Decode(b64Msg, b64_Msg_Length, &encMessage);
+            int msg_Length = base64Decode(b64Msg.c_str(), b64_Msg_Length, &encMessage);
 
             //decode msg
             if((decMsgLen = crypto.rsaDecrypt(encMessage, (size_t)msg_Length,
